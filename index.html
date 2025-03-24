@@ -29,15 +29,12 @@
     </style>
 </head>
 <body>
-    <button id="fullscreenBtn">היכנס למסך מלא</button>
-    <canvas id="canvas"></canvas>
+     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
-        const fullscreenBtn = document.getElementById("fullscreenBtn");
-
-        // עדכון מידות הקנבס
+           // עדכון מידות הקנבס
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
@@ -138,7 +135,7 @@
         }
 
         // הוספת אירוע למעבר למסך מלא
-        fullscreenBtn.addEventListener("click", () => {
+        canvas.addEventListener("click", () => {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen();
             } else if (document.documentElement.mozRequestFullScreen) {
@@ -152,9 +149,7 @@
         });
 
         // יצירת גל עם לחיצה או מגע במסך
-        canvas.addEventListener("click", (event) => {
-            createWave(event.clientX, event.clientY);
-        });
+        
 
         canvas.addEventListener("touchmove", (event) => {
             let touch = event.touches[0];
