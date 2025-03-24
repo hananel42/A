@@ -8,42 +8,84 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: black;
+            background: black;
+            text-align: center;
+        }
+        #backgroundImage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            display: none;
+            z-index: -1;
         }
         canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
         }
-        #fullscreenBtn {
+        #uploadButton {
             position: absolute;
             top: 20px;
             left: 20px;
-            font-size: 20px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
+            z-index: 3;
+            font-size: 18px;
             padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
             border: none;
             cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <button id="fullscreenBtn">היכנס למסך מלא</button>
+    <input type="file" id="uploadButton" accept="image/*">
+    <img id="backgroundImage" alt="תמונה שהועלתה">
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
-        const fullscreenBtn = document.getElementById("fullscreenBtn");
+        const uploadButton = document.getElementById("uploadButton");
+        const backgroundImage = document.getElementById("backgroundImage");
 
-        // עדכון מידות הקנבס
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
         const particles = [];
-        const numParticles = 7000;
-        const waves = [];
+        const numParticles = 1000;
+        let waves = [];
+
+        // טעינת תמונה והסתרת הכפתור
+        uploadButton.addEventListener("change", (event) => {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            } else if (document.documentElement.mozRequestFullScreen) {
+                document.documentElement.mozRequestFullScreen();
+            } else if (document.documentElement.webkitRequestFullscreen) {
+                document.documentElement.webkitRequestFullscreen();
+            } else if (document.documentElement.msRequestFullscreen) {
+                document.documentElement.msRequestFullscreen();
+            }
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    backgroundImage.src = e.target.result;
+                    backgroundImage.style.display = "block";
+                    uploadButton.style.display = "none"; // הסתרת הכפתור
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // כניסה למסך מלא בלחיצה על הקנבס
+        
 
         class Particle {
             constructor(x, y) {
@@ -51,30 +93,29 @@
                 this.y = y;
                 this.originX = x;
                 this.originY = y;
-                this.size = 1;
-                this.color = `hsl(${Math.random() * 60+200}, ${Math.random()*100}%, ${Math.random()*100}%)`;
+                this.size = 0.1;
+                this.color = `hsl(${Math.random() * 60 + 200}, ${Math.random() * 100}%, ${Math.random() * 100}%)`;
                 this.force = 0;
                 this.angle = 0;
             }
 
             move() {
-                
-                    this.force *= 0.97;
-                    this.angle += 0.2;
-                    this.x = this.originX + Math.cos(this.angle) * this.force;
-                    this.y = this.originY + Math.sin(this.angle) * this.force;
-
+                this.force *= 0.97;
+                this.angle += 0.1;
+                this.size -= this.size>0.1 ? 0.1:0;
+                this.x = this.originX + Math.cos(this.angle) * this.force;
+                this.y = this.originY + Math.sin(this.angle) * this.force;
             }
 
-            applyWave(x, y, radius,color) {
+            applyWave(x, y, radius) {
                 let dx = this.x - x;
                 let dy = this.y - y;
                 let distance = Math.sqrt(dx * dx + dy * dy);
-                
+
                 if (distance < radius && distance > radius - 70) {
                     this.force = (radius - distance) * 0.4;
                     this.angle = Math.atan2(dy, dx);
-                    this.color = `hsl(${Math.random() * 60+color}, ${Math.random()*100}%, ${Math.random()*100}%)`;
+                    this.size+=this.size<2 ? 0.1:0;
                 }
             }
 
@@ -91,15 +132,14 @@
                 this.x = x;
                 this.y = y;
                 this.radius = 0;
-                this.speed = 20;
-                this.color = Math.random()*300
+                this.speed = 8;
                 this.active = true;
             }
 
             expand() {
                 if (this.active) {
                     this.radius += this.speed;
-                    if (this.radius > Math.max(canvas.width, canvas.height) * 1.5) {
+                    if (this.radius > Math.hypot(canvas.width, canvas.height)) {
                         this.active = false;
                     }
                 }
@@ -108,20 +148,19 @@
 
         function createParticles() {
             for (let i = 0; i < numParticles; i++) {
-                let x = Math.random() * (canvas.width+10)-5;
-                let y = Math.random() * (canvas.height+10)-5;
+                let x = Math.random() * (canvas.width + 10) - 5;
+                let y = Math.random() * (canvas.height + 10) - 5;
                 particles.push(new Particle(x, y));
             }
         }
 
         function animate() {
-            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+
             for (let wave of waves) {
                 wave.expand();
                 for (let particle of particles) {
-                    particle.applyWave(wave.x, wave.y, wave.radius,wave.color);
+                    particle.applyWave(wave.x, wave.y, wave.radius);
                 }
             }
 
@@ -134,13 +173,28 @@
         }
 
         function createWave(x, y) {
-            
             waves.push(new Wave(x, y));
             waves = waves.filter(wave => wave.active);
         }
 
-        // הוספת אירוע למעבר למסך מלא
-        fullscreenBtn.addEventListener("click", () => {
+                
+
+        // יצירת גל במגע
+        canvas.addEventListener("touchstart", (event) => {
+            for (let touch of event.touches) {
+                createWave(touch.clientX, touch.clientY);
+            }
+            event.preventDefault();
+        });
+
+        canvas.addEventListener("touchmove", (event) => {
+            for (let touch of event.touches) {
+                createWave(touch.clientX, touch.clientY);
+            }
+            event.preventDefault();
+        });
+
+        window.addEventListener("resize", () => {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen();
             } else if (document.documentElement.mozRequestFullScreen) {
@@ -150,26 +204,6 @@
             } else if (document.documentElement.msRequestFullscreen) {
                 document.documentElement.msRequestFullscreen();
             }
-            fullscreenBtn.style.display = "none";  // החבאת כפתור הכניסה למסך מלא אחרי הלחיצה
-        });
-
-        // יצירת גל עם לחיצה או מגע במסך
-        canvas.addEventListener("touchstart", (event) => {
-    for (let touch of event.touches) {
-        createWave(touch.clientX, touch.clientY);
-    }
-    event.preventDefault(); // מונע פעולות ברירת מחדל
-});
-
-canvas.addEventListener("touchmove", (event) => {
-    for (let touch of event.touches) {
-        createWave(touch.clientX, touch.clientY);
-    }
-    event.preventDefault(); // מונע פעולות ברירת מחדל
-});
-
-        // עדכון גודל הקנבס במקרה של שינוי גודל חלון
-        window.addEventListener("resize", () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             particles.length = 0;
