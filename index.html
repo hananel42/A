@@ -2,216 +2,269 @@
 <html lang="he">
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>גלי חלקיקים אינסופיים</title>
+    <title>כדור קופץ</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: black;
-            text-align: center;
-        }
-        #backgroundImage {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             height: 100vh;
-            object-fit: cover;
-            display: none;
-            z-index: -1;
+            background-color: lightblue;
+            font-family: Arial, sans-serif;
         }
         canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 2;
+            background-color: white;
+            border: 2px solid black;
         }
-        #uploadButton {
+        #gameOverScreen {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 3;
-            font-size: 18px;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.7);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
-            border: none;
-            cursor: pointer;
+            padding: 20px;
+            text-align: center;
+            display: none;
+            border-radius: 10px;
         }
+        
+    #settingsButton {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: white;
+        border: 1px solid black;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+    
+    #controls {
+        position: absolute;
+        top: 50px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid black;
+    }
+
+    label, input, button {
+        display: block;
+        margin: 5px 0;
+    }
+
     </style>
 </head>
 <body>
-    <input type="file" id="uploadButton" accept="image/*">
-    <img id="backgroundImage" alt="תמונה שהועלתה">
-    <canvas id="canvas"></canvas>
+    <canvas id="gameCanvas"></canvas>
+    <div id="gameOverScreen">
+        <p id="gameOverText"></p>
+      
+        <button onclick="restartGame()">התחל מחדש</button>
+    </div>
+    
+<button id="settingsButton" onclick="toggleSettings()">⚙️ הגדרות</button>
 
-    <script>
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d");
-        const uploadButton = document.getElementById("uploadButton");
-        const backgroundImage = document.getElementById("backgroundImage");
+<div id="controls" style="display: none;">
+    <label for="gravityInput">כוח כבידה:</label>
+    <input type="number" id="gravityInput" step="any" value="0.3">
+    
+    <label for="jumpPowerInput">כוח קפיצה:</label>
+    <input type="number" id="jumpPowerInput" step="any" value="8">
+    
+    <button onclick="applyCustomSettings()">החל</button>
+</div>
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
 
-        const particles = [];
-        const numParticles = 1000;
-        let waves = [];
 
-        // טעינת תמונה והסתרת הכפתור
-        uploadButton.addEventListener("change", (event) => {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
-            } else if (document.documentElement.mozRequestFullScreen) {
-                document.documentElement.mozRequestFullScreen();
-            } else if (document.documentElement.webkitRequestFullscreen) {
-                document.documentElement.webkitRequestFullscreen();
-            } else if (document.documentElement.msRequestFullscreen) {
-                document.documentElement.msRequestFullscreen();
-            }
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    backgroundImage.src = e.target.result;
-                    backgroundImage.style.display = "block";
-                    uploadButton.style.display = "none"; // הסתרת הכפתור
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+<script>
+    function toggleSettings() {
+        let controls = document.getElementById("controls");
+        controls.style.display = controls.style.display === "none" ? "block" : "none";
+    }
 
-        // כניסה למסך מלא בלחיצה על הקנבס
+    function applyCustomSettings() {
+        let newGravity = parseFloat(document.getElementById("gravityInput").value);
+        let newJumpPower = parseFloat(document.getElementById("jumpPowerInput").value);
+        toggleSettings();
         
+        if (!isNaN(newGravity) && !isNaN(newJumpPower)) {
+            gravity = newGravity;
+            gravityValues.unshift(gravity);
+            aportals = false;
+            jumpPower = newJumpPower;
+        }
+    }
 
-        class Particle {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.originX = x;
-                this.originY = y;
-                this.size = 0.1;
-                this.color = `hsl(${Math.random() * 60 + 200}, ${Math.random() * 100}%, ${Math.random() * 100}%)`;
-                this.force = 0;
-                this.angle = 0;
-            }
+  
 
-            move() {
-                this.force *= 0.97;
-                this.angle += 0.1;
-                this.size -= this.size>0.1 ? 0.1:0;
-                this.x = this.originX + Math.cos(this.angle) * this.force;
-                this.y = this.originY + Math.sin(this.angle) * this.force;
-            }
 
-            applyWave(x, y, radius) {
-                let dx = this.x - x;
-                let dy = this.y - y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
+    
 
-                if (distance < radius && distance > radius - 70) {
-                    this.force = (radius - distance) * 0.4;
-                    this.angle = Math.atan2(dy, dx);
-                    this.size+=this.size<2 ? 0.1:0;
+  
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 400;
+        canvas.height = 600;
+        let jumpPower = 5;
+        let ball, gravity, obstacles, frame, gameOver, obstacleSpeed, gapSize, score, portal;
+        const colors = [ "Blue", "darkGreen", "Yellow",  "Orange", "Light Blue", "Brown", "Gray", "White", "Turquoise", "Bordeaux", "Olive", "Mint", "Salmon", "Gold", "Silver"];
+        let gravityValues = [0.2, 0.1,0.3];
+        let bestscore=0;
+        let aportals = true;
+        function initializeGame() {
+            ball = { x: 50, y: 300, radius: 15, dy: 0 };
+            currentGravityIndex = 0;
+            gravity = gravityValues[currentGravityIndex];
+            obstacles = [];
+            portal = null;
+            frame = 0;
+            gameOver = false;
+            obstacleSpeed = 2;
+            gapSize = 250;
+            score = 0;  
+            document.getElementById("gameOverScreen").style.display = "none";
+            changeWorldColors();
+            gameLoop();
+        }
+
+        function changeWorldColors() {
+           
+            document.body.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            canvas.style.backgroundColor = document.body.style.backgroundColor;
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "red";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function updateBall() {
+            ball.dy += gravity;
+            ball.y += ball.dy;
+            if (ball.y + ball.radius >= canvas.height || ball.y - ball.radius <= 0) endGame();
+            checkObstacleCollision();
+            checkPortalCollision();
+        }
+
+        function createObstacle() {
+            obstacleSpeed+=0.2;
+            let height = Math.random() * (canvas.height / 3) + 50;
+            obstacles.push({ x: canvas.width, topHeight: height, bottomHeight: canvas.height - height - gapSize, width: 50 });
+        }
+
+        function updateObstacles() {
+            if (frame % Math.floor(300-(obstacleSpeed*30)) === 0) createObstacle();
+            obstacles.forEach(obstacle => {
+                obstacle.x -= obstacleSpeed;
+            });
+            obstacles = obstacles.filter(obstacle => obstacle.x + obstacle.width > 0);
+        }
+
+        function drawObstacles() {
+            ctx.fillStyle = "green";
+            obstacles.forEach(obstacle => {
+                ctx.fillRect(obstacle.x, 0, obstacle.width, obstacle.topHeight);
+                ctx.fillRect(obstacle.x, canvas.height - obstacle.bottomHeight, obstacle.width, obstacle.bottomHeight);
+            });
+        }
+
+        function checkObstacleCollision() {
+            obstacles.forEach(obstacle => {
+                if ((ball.x + ball.radius > obstacle.x && ball.x - ball.radius < obstacle.x + obstacle.width) &&
+                    (ball.y - ball.radius < obstacle.topHeight || ball.y + ball.radius > canvas.height - obstacle.bottomHeight)) {
+                    endGame();
                 }
-            }
+            });
+        }
 
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
+        function drawScore() {
+            ctx.fillStyle = "black";
+            ctx.font = "20px Arial";
+            ctx.fillText("Score: " + Math.floor(score)+"     best :"+Math.floor(bestscore), 10, 30);
+        }
+
+        function createPortal() {
+            portal = { x: canvas.width, y: 0, width: 50, height: canvas.height , active:true};
+        }
+
+        function updatePortal() {
+            if (frame % 120  === 0 && Math.random()<score/1000 && !portal && aportals) createPortal();
+            if (portal) {
+                portal.x -= obstacleSpeed;
+                if (portal.x + portal.width < 0) portal= null;
             }
         }
 
-        class Wave {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 0;
-                this.speed = 8;
-                this.active = true;
-            }
-
-            expand() {
-                if (this.active) {
-                    this.radius += this.speed;
-                    if (this.radius > Math.hypot(canvas.width, canvas.height)) {
-                        this.active = false;
-                    }
-                }
+        function drawPortal() {
+            if (portal) {
+                ctx.fillStyle = "purple";
+                ctx.fillRect(portal.x, portal.y, portal.width, portal.height);
             }
         }
 
-        function createParticles() {
-            for (let i = 0; i < numParticles; i++) {
-                let x = Math.random() * (canvas.width + 10) - 5;
-                let y = Math.random() * (canvas.height + 10) - 5;
-                particles.push(new Particle(x, y));
+        function checkPortalCollision() {
+            if ( portal && portal.active && ball.x + ball.radius > portal.x && ball.x - ball.radius < portal.x + portal.width &&
+                ball.y + ball.radius > portal.y && ball.y - ball.radius < portal.y + portal.height) {
+                currentGravityIndex = (currentGravityIndex + 1) % gravityValues.length;
+                gravity = gravityValues[currentGravityIndex];
+                jumpPower = gravity > 0 ? 5 : -5;
+                portal.active=false;
+                gapSize=250;
+                obstacles = [];
+                changeWorldColors();
             }
         }
 
-        function animate() {
+        function endGame() {
+            gameOver = true;
+            if(score>bestscore){bestscore=score;}
+            document.getElementById("gameOverText").innerText = `נפסלת! ניקוד: ${Math.floor(score)} שיא: ${Math.floor(bestscore)}`;
+            document.getElementById("gameOverScreen").style.display = "block";
+        }
+
+        function restartGame() {
+            initializeGame();
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            for (let wave of waves) {
-                wave.expand();
-                for (let particle of particles) {
-                    particle.applyWave(wave.x, wave.y, wave.radius);
-                }
-            }
-
-            for (let particle of particles) {
-                particle.move();
-                particle.draw();
-            }
-
-            requestAnimationFrame(animate);
+            drawBall();
+            
+            drawPortal();
+            drawObstacles();
+            drawScore();
+            updateBall();
+            updateObstacles();
+            updatePortal();
+            score += 0.1;
+            frame++;
+            gapSize-=0.05
+            if (gapSize===80){gapSize=250;}
+            requestAnimationFrame(gameLoop);
         }
 
-        function createWave(x, y) {
-            waves.push(new Wave(x, y));
-            waves = waves.filter(wave => wave.active);
-        }
+        window.addEventListener("click", () => ball.dy = -jumpPower);
 
-                
-
-        // יצירת גל במגע
-        canvas.addEventListener("touchstart", (event) => {
-            for (let touch of event.touches) {
-                createWave(touch.clientX, touch.clientY);
-            }
-            event.preventDefault();
-        });
-
-        canvas.addEventListener("touchmove", (event) => {
-            for (let touch of event.touches) {
-                createWave(touch.clientX, touch.clientY);
-            }
-            event.preventDefault();
-        });
-
-        window.addEventListener("resize", () => {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
-            } else if (document.documentElement.mozRequestFullScreen) {
-                document.documentElement.mozRequestFullScreen();
-            } else if (document.documentElement.webkitRequestFullscreen) {
-                document.documentElement.webkitRequestFullscreen();
-            } else if (document.documentElement.msRequestFullscreen) {
-                document.documentElement.msRequestFullscreen();
-            }
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            particles.length = 0;
-            createParticles();
-        });
-
-        createParticles();
-        animate();
+        initializeGame();
     </script>
+    <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/27/service-worker.js")
+      .then(() => console.log("Service Worker Registered"))
+      .catch((error) => console.log("Service Worker Registration Failed:", error));
+  }
+    </script>
+    
 </body>
 </html>
